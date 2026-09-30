@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "cosbot",
+    "slug": "cosbot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "versionCode": 1,
+    "ios": {
+      "bundleIdentifier": "com.qwc.cosbot",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.qwc.cosbot",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

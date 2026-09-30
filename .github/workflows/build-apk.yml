@@ -1,0 +1,74 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile (preview / production)
+        required: false
+        default: preview
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build android (${{ inputs.profile || 'preview' }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Normalize file permissions
+        # 某些 runner 的 umask 会让 Metro 扫不到 node_modules
+        run: chmod -R u+rwX,go+rX node_modules
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Start build
+        id: start
+        run: |
+          eas build \
+            --platform android \
+            --profile "${{ inputs.profile || 'preview' }}" \
+            --non-interactive \
+            --json > build-info.json
+          BUILD_ID="$(node -e "console.log(require('./build-info.json').id)")"
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "Started EAS build $BUILD_ID"
+
+      - name: Wait for build
+        run: eas build:wait --id "${{ steps.start.outputs.BUILD_ID }}" --non-interactive
+
+      - name: Download artifact
+        run: |
+          mkdir -p artifacts
+          eas build:download \
+            --id "${{ steps.start.outputs.BUILD_ID }}" \
+            --platform android \
+            --output artifacts
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosbot-apk-${{ inputs.profile || 'preview' }}
+          path: artifacts/*
+          if-no-files-found: error
