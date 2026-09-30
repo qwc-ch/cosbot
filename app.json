@@ -7,9 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "versionCode": 1,
-    "cli": {
-      "appVersionSource": "remote"
-    },
     "ios": {
       "bundleIdentifier": "com.qwc.cosbot",
       "supportsTablet": true
@@ -26,11 +23,6 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "4bdcae90-5587-4213-a044-83000e88bb79"
-      }
     }
   }
 }
