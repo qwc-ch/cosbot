@@ -94,10 +94,25 @@ pnpm start      # 启动开发服务器
 
 **前置配置**
 
-1. 在 Expo 官网（[expo.dev/accounts/settings/access-tokens](https://expo.dev/accounts/settings/access-tokens)）创建一个 Access Token。
-2. 打开 GitHub 仓库 → `Settings` → `Secrets and variables` → `Actions` → `New repository secret`：
+1. 注册/登录 [expo.dev](https://expo.dev) 账号。
+2. 在 [expo.dev/accounts/settings/access-tokens](https://expo.dev/accounts/settings/access-tokens) 创建一个 Access Token。
+3. 把项目关联到 EAS 项目（生成 `app.json` 里的 `extra.eas.projectId`）——**这步必须做**，否则 CI 里的 `eas build` 会尝试交互式登录并失败。在项目根目录跑一次：
+
+   ```bash
+   pnpm dlx eas-cli@latest init
+   # 按提示登录，选择组织，会自动往 app.json 写入 extra.eas.projectId
+   ```
+
+   完成后 `app.json` 里应出现：
+
+   ```json
+   "extra": { "eas": { "projectId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" } }
+   ```
+
+   把这个改动一并提交。
+4. 打开 GitHub 仓库 → `Settings` → `Secrets and variables` → `Actions` → `New repository secret`：
    - Name: `EXPO_TOKEN`
-   - Value: 上面拿到的 token
+   - Value: 第 2 步拿到的 token
 
 **触发构建**
 
