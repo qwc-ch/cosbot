@@ -19,25 +19,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          # 锁定精确版本：major 范围会让 action 走 self-installer 去猜最新版
-          version: 12.6.0
-          run_install: false
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Normalize file permissions
-        # 某些 runner 的 umask 会让 Metro 扫不到 node_modules
+        # 部分环境 umask 较严，Metro 的文件扫描可能扫不到 node_modules
         run: chmod -R u+rwX,go+rX node_modules
+
+      - name: Type check
+        run: npx tsc --noEmit
 
       - name: Check EXPO_TOKEN
         run: |

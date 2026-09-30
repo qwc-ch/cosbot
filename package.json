@@ -20,6 +20,5 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true,
-  "packageManager": "pnpm@12.6.0"
+  "private": true
 }

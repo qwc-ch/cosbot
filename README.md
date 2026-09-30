@@ -52,16 +52,16 @@
 
 ### 2. 本地跑起来
 
-需要 Node.js 20+ 和 pnpm（**不用装 Java / Android SDK**）。
+需要 Node.js 20+（**不用装 Java / Android SDK**）。
 
 ```bash
-pnpm install
-pnpm start      # 启动开发服务器
+npm install
+npm start      # 启动开发服务器
 ```
 
-> **关于 pnpm 配置**：项目里的 `pnpm-workspace.yaml` 设了 `nodeLinker: hoisted`。
-> 这是必须的 —— Metro 的模块解析器跟不了 pnpm 默认的符号链接结构，会报
-> `Unable to resolve module expo`。请不要删掉这行配置，也别加 `node-linker=isolated`。
+> 本项目用 **npm** 而不是 pnpm。原因：Expo/Metro 与 pnpm 的符号链接结构
+> 兼容不好，早期遇到过 `Unable to resolve module expo`，换成 npm 扁平
+> `node_modules` 后不再出现。
 >
 > **如果报 `Unable to resolve module expo` 但 `node_modules/expo` 明明存在**，
 > 多半是文件权限问题（某些环境 `umask` 是 `0077`，装出来的包是 700/600 权限，
@@ -99,7 +99,7 @@ pnpm start      # 启动开发服务器
 3. 把项目关联到 EAS 项目（生成 `app.json` 里的 `extra.eas.projectId`）——**这步必须做**，否则 CI 里的 `eas build` 会尝试交互式登录并失败。在项目根目录跑一次：
 
    ```bash
-   pnpm dlx eas-cli@latest init
+   npx eas-cli@latest init
    # 按提示登录，选择组织，会自动往 app.json 写入 extra.eas.projectId
    ```
 

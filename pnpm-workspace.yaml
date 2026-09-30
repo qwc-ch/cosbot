@@ -1,2 +1,0 @@
-# pnpm 12 在此配置 node-linker（Expo/Metro 解析器无法跟随 pnpm 的符号链接结构）
-nodeLinker: hoisted
