@@ -48,6 +48,10 @@ jobs:
         # prebuild 根据 app.json 生成原生工程；--no-install 避免重复装依赖
         run: npx expo prebuild --platform android --no-install
 
+      - name: Ensure gradlew is executable
+        # /android 未纳入版本管理，prebuild 生成的文件可能缺少执行位
+        run: chmod +x android/gradlew
+
       - name: Cache Gradle build
         uses: actions/cache@v4
         with:
