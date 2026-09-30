@@ -43,14 +43,14 @@ jobs:
           fi
           echo "EXPO_TOKEN 已配置"
 
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install EAS CLI
+        # 不用 expo/expo-github-action：它内部走 yarn 安装 eas-cli，在 runner 上会失败
+        run: npm install -g eas-cli@latest
 
       - name: Start build
         id: start
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas build \
             --platform android \
@@ -62,9 +62,13 @@ jobs:
           echo "Started EAS build $BUILD_ID"
 
       - name: Wait for build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build:wait --id "${{ steps.start.outputs.BUILD_ID }}" --non-interactive
 
       - name: Download artifact
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           mkdir -p artifacts
           eas build:download \
