@@ -90,53 +90,33 @@ npm start      # 启动开发服务器
 
 ## GitHub Actions 打包 APK
 
-仓库里已经带好 [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)，用 EAS 云构建，CI 机器不需要 Android SDK。
-
-**前置配置**
-
-1. 注册/登录 [expo.dev](https://expo.dev) 账号。
-2. 在 [expo.dev/accounts/settings/access-tokens](https://expo.dev/accounts/settings/access-tokens) 创建一个 Access Token。
-3. 把项目关联到 EAS 项目（生成 `app.json` 里的 `extra.eas.projectId`）——**这步必须做**，否则 CI 里的 `eas build` 会尝试交互式登录并失败。在项目根目录跑一次：
-
-   ```bash
-   npx eas-cli@latest init
-   # 按提示登录，选择组织，会自动往 app.json 写入 extra.eas.projectId
-   ```
-
-   完成后 `app.json` 里应出现：
-
-   ```json
-   "extra": { "eas": { "projectId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" } }
-   ```
-
-   把这个改动一并提交。
-4. 打开 GitHub 仓库 → `Settings` → `Secrets and variables` → `Actions` → `New repository secret`：
-   - Name: `EXPO_TOKEN`
-   - Value: 第 2 步拿到的 token
+仓库里带好 [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)，在 GitHub 的 runner 上直接跑 Gradle 构建 —— **不需要 Expo 账号，不需要任何 secret**。
 
 **触发构建**
 
-- 手动：在 `Actions` 页选 `Build Android APK` → `Run workflow`，选 `preview` 或 `production` profile。
-- 打 tag：`git tag v1.0.0 && git push origin v1.0.0` 会自动用 `preview` profile 构建。
+- 手动：`Actions` 页选 `Build Android APK` → `Run workflow`，可选 `release`（默认）或 `debug`。
+- 打 tag：`git tag v1.0.0 && git push origin v1.0.0` 自动触发 `release`。
 
-构建完成后，在 workflow 运行的 Summary/Artifacts 里下载 APK（[build-info](https://expo.dev) 对应页面可看构建历史）。
+构建完成后在 workflow 的 Artifacts 里下载 APK（保留 30 天）。
 
-**build profile 说明**（见 `eas.json`）
+**流程**：Node 20 → Temurin 17 → `npm ci` → 类型检查 → `expo prebuild` 生成原生工程 → `gradlew assembleRelease` → 上传产物。Gradle 缓存会在多次构建间复用，第二次会快不少。
 
-| profile | 产物 | 用途 |
-|---|---|---|
-| `preview` | APK | 直接装手机，最常用 |
-| `production` | AAB | 上架应用市场，自动递增 versionCode |
-| `development` | APK（含 dev client） | 需要配合 `expo-dev-client`，日常不用 |
+**关于签名**：目前用 React Native 模板自带的 debug keystore 签名，**APK 可以直接安装到手机上**，但不能上架应用市场。如果要上架，需要生成正式 keystore 并配置 `android/keystore.properties`：
 
-如果 APK 上架需要自己的签名，配置好 `android/keystore.properties` 后 EAS 会自动使用：
-
-```
+```properties
 MYAPP_UPLOAD_STORE_FILE=./cosbot.keystore
 MYAPP_UPLOAD_KEY_ALIAS=cosbot
-MYAPP_UPLOAD_STORE_PASSWORD=...
-MYAPP_UPLOAD_KEY_PASSWORD=...
+MYAPP_UPLOAD_STORE_PASSWORD=你的密码
+MYAPP_UPLOAD_KEY_PASSWORD=你的密码
 ```
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 \
+  -keystore cosbot.keystore -alias cosbot \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+（该文件需提交进仓库，密钥库本身要妥善保管。）
 
 ---
 
@@ -158,8 +138,7 @@ src/
     ChatScreen.tsx           聊天页，输入内容以 bot 身份发送
     NewSessionScreen.tsx     手动新建会话（指定 id 发主动消息）
     SettingsScreen.tsx       凭证、Intents、连接状态、运行日志
-eas.json                     EAS 构建配置
-.github/workflows/           GitHub Actions 打包
+.github/workflows/           GitHub Actions 打包（Node + JDK + Gradle）
 ```
 
 数据持久化在 AsyncStorage（`cosbot-state-v1`）：AppID/AppSecret、会话列表、消息历史（每个会话保留最近 200 条）。**凭证只存在你自己的手机里**，不会上传到任何第三方服务器 —— 但也意味着换手机要重新填一次。
