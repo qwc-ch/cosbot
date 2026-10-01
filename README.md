@@ -107,6 +107,29 @@ npm start      # 启动开发服务器
 
 **流程**：Node 20 → Temurin 17 → `npm ci` → 类型检查 → `expo prebuild` 生成原生工程 → `gradlew assembleRelease` → 上传产物。Gradle 缓存会在多次构建间复用，第二次会快不少。
 
+### 按 CPU 架构分开打包
+
+构建会为每个 ABI 单独出一个包，文件名带架构后缀：
+
+| 文件 | 适用设备 |
+| --- | --- |
+| `cosbot-<版本>-arm64-v8a.apk` | **绝大多数现代手机**（2017 年后基本都是），优先选这个 |
+| `cosbot-<版本>-armeabi-v7a.apk` | 老旧 32 位手机，实在不确定就试这个 |
+
+做法是 CI 里用 matrix 起两个 job，各自传 `-PreactNativeArchitectures=<abi>`，让 Gradle 只打一个架构的 `.so`，而不是打一个装了两份原生库的 universal 包。装错架构的话系统会直接提示 `INSTALL_FAILED_NO_MATCHING_ABIS`，不会静默装坏。
+
+日志里会打出 APK 实际包含的 ABI 列表和体积分解（native `.so` / assets / dex / res 各占多少），方便判断包体变化来自哪里。
+
+### 包体优化
+
+`app.json` 的 `expo-build-properties` 里开了三项：
+
+- `enableMinifyInReleaseBuilds` — R8 混淆压缩，去掉未使用的 Java/Kotlin 代码和类名
+- `enableShrinkResourcesInReleaseBuilds` — 按实际用到的资源裁剪 `res/`，需要上一项开启
+- `enableBundleCompression` — 压缩 JS bundle
+
+再加上按 ABI 拆分，每份 APK 里只有一套 `.so`。三项都由 Expo 官方插件写入 `gradle.properties`，不涉及提交原生工程文件。
+
 **关于签名**：目前用 React Native 模板自带的 debug keystore 签名，**APK 可以直接安装到手机上**，但不能上架应用市场。如果要上架，需要生成正式 keystore 并配置 `android/keystore.properties`：
 
 ```properties
@@ -139,7 +162,8 @@ src/
     gateway.ts               websocket 网关：identify / 心跳 / resume / 指数退避重连
   store.ts                   zustand 全局状态：配置、会话、消息历史、日志、前台重连
   ui/
-    kit.tsx                  基础组件（按钮、卡片、输入框、状态徽章、主题色）
+    theme.ts                 MD3 主题：浅色/深色两套色板，跟随系统切换
+    kit.tsx                  共享复合组件（页面容器、分组卡片、状态徽章、空状态）
     SessionListScreen.tsx    会话列表
     ChatScreen.tsx           聊天页，输入内容以 bot 身份发送
     NewSessionScreen.tsx     手动新建会话（指定 id 发主动消息）

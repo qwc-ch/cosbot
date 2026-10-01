@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import {
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, useColorScheme } from 'react-native';
+import { PaperProvider, useTheme } from 'react-native-paper';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import ChatScreen from './src/ui/ChatScreen';
 import NewSessionScreen from './src/ui/NewSessionScreen';
 import SessionListScreen from './src/ui/SessionListScreen';
 import SettingsScreen from './src/ui/SettingsScreen';
-import { colors } from './src/ui/kit';
+import { darkTheme, lightTheme, type AppTheme } from './src/ui/theme';
 import { installForegroundReconnect, useStore } from './src/store';
 
 installForegroundReconnect();
@@ -27,35 +23,38 @@ type Route =
 const NEW_SESSION = '__new__';
 
 export default function App() {
+  const scheme = useColorScheme();
+  const theme = scheme === 'dark' ? darkTheme : lightTheme;
+
+  return (
+    <PaperProvider theme={theme}>
+      <SafeAreaProvider>
+        <Root />
+      </SafeAreaProvider>
+    </PaperProvider>
+  );
+}
+
+function Root() {
+  const theme = useTheme<AppTheme>();
   const [route, setRoute] = useState<Route>({ name: 'sessions' });
   const sessions = useStore((s) => s.sessions);
   const unreadTotal = Object.values(sessions).reduce((n, s) => n + s.unread, 0);
-
   const go = (r: Route) => setRoute(r);
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.card} />
-
-      <View style={styles.header}>
-        {route.name === 'sessions' ? (
-          <>
-            <Text style={styles.title}>cosbot{unreadTotal > 0 ? ` (${unreadTotal})` : ''}</Text>
-            <TouchableOpacity
-              onPress={() => go({ name: 'settings' })}
-              hitSlop={10}
-            >
-              <Text style={styles.headerAction}>设置</Text>
-            </TouchableOpacity>
-          </>
-        ) : null}
-      </View>
-
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: theme.colors.surface }]}
+      edges={['top', 'bottom', 'left', 'right']}
+    >
+      <StatusBar style={theme.dark ? 'light' : 'dark'} />
       {route.name === 'sessions' ? (
         <SessionListScreen
+          unreadTotal={unreadTotal}
           onOpen={(key) =>
             go(key === NEW_SESSION ? { name: 'new' } : { name: 'chat', key })
           }
+          onOpenSettings={() => go({ name: 'settings' })}
         />
       ) : null}
       {route.name === 'new' ? (
@@ -67,46 +66,13 @@ export default function App() {
       {route.name === 'chat' ? (
         <ChatScreen sessionKey={route.key} onBack={() => go({ name: 'sessions' })} />
       ) : null}
-
-      {route.name === 'settings' && (
-        <SettingsScreenWithBack onBack={() => go({ name: 'sessions' })} />
-      )}
+      {route.name === 'settings' ? (
+        <SettingsScreen onBack={() => go({ name: 'sessions' })} />
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function SettingsScreenWithBack({ onBack }: { onBack: () => void }) {
-  return (
-    <View style={styles.flex}>
-      <TouchableOpacity style={styles.backBar} onPress={onBack} hitSlop={10}>
-        <Text style={styles.backText}>‹ 返回</Text>
-      </TouchableOpacity>
-      <SettingsScreen />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.card,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text },
-  headerAction: { fontSize: 15, color: colors.primary },
-  backBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.card,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  backText: { fontSize: 16, color: colors.primary },
+  root: { flex: 1 },
 });

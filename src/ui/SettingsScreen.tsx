@@ -1,11 +1,23 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Appbar,
+  Button,
+  Divider,
+  List,
+  Switch,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 
 import { getMe } from '../qq/api';
 import { useStore } from '../store';
-import { Button, Card, Field, Row, StatusBadge, Switch, colors } from './kit';
+import { Helper, Section, StatusBadge } from './kit';
+import { spacing, type AppTheme } from './theme';
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ onBack }: { onBack: () => void }) {
+  const theme = useTheme<AppTheme>();
   const config = useStore((s) => s.config);
   const status = useStore((s) => s.status);
   const statusDetail = useStore((s) => s.statusDetail);
@@ -23,98 +35,181 @@ export default function SettingsScreen() {
       pushLog(`凭证有效：${me.username ?? '(未知名称)'} / ${me.id ?? ''}`);
     } catch (err: any) {
       pushLog(`校验失败：${err?.message ?? err}`);
-      Alert.alert('校验失败', err?.message ?? String(err));
     }
   };
 
+  const connected = status !== 'idle' && status !== 'error';
+
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-      <Card>
-        <View style={styles.statusRow}>
-          <Text style={styles.cardTitle}>网关状态</Text>
-          <StatusBadge status={status} />
-        </View>
-        {statusDetail ? <Text style={styles.detail}>{statusDetail}</Text> : null}
-        <View style={styles.btnRow}>
-          {status === 'idle' || status === 'error' ? (
-            <Button title="连接" onPress={connect} style={styles.flexBtn} />
+    <View style={styles.flex}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={onBack} />
+        <Appbar.Content title="设置" />
+      </Appbar.Header>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        <Section title="网关">
+          <View style={styles.statusRow}>
+            <Text variant="titleMedium">网关状态</Text>
+            <StatusBadge status={status} />
+          </View>
+          {statusDetail ? (
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {statusDetail}
+            </Text>
+          ) : null}
+          <View style={styles.btnRow}>
+            {connected ? (
+              <Button
+                mode="outlined"
+                icon="link-off"
+                style={styles.flexBtn}
+                onPress={disconnect}
+              >
+                断开
+              </Button>
+            ) : (
+              <Button mode="contained" icon="link-variant" style={styles.flexBtn} onPress={connect}>
+                连接
+              </Button>
+            )}
+            <Button
+              mode="outlined"
+              icon="shield-check-outline"
+              style={styles.flexBtn}
+              onPress={test}
+            >
+              校验凭证
+            </Button>
+          </View>
+        </Section>
+
+        <Section
+          title="机器人凭证"
+          description="在 q.qq.com → 开放平台 → 我的机器人里获取 AppID 与 AppSecret。凭证保存在本机 AsyncStorage，不会上传到任何第三方。"
+        >
+          <TextInput
+            mode="outlined"
+            label="AppID"
+            value={config.appid}
+            onChangeText={(appid) => setConfig({ appid: appid.trim() })}
+            placeholder="例如 102xxxxxx"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Helper>修改凭证后请先「断开」再「连接」使配置生效</Helper>
+
+          <View style={{ height: spacing.lg }} />
+
+          <TextInput
+            mode="outlined"
+            label="AppSecret"
+            value={config.secret}
+            onChangeText={(secret) => setConfig({ secret: secret.trim() })}
+            placeholder="请输入 AppSecret"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </Section>
+
+        <Section title="订阅事件" description="Intents 决定机器人能收到哪些消息，修改后需要重连才能生效。">
+          <List.Item
+            title="群 / 单聊消息"
+            description="public_messages"
+            left={(props) => <List.Icon {...props} icon="account-group-outline" />}
+            right={() => (
+              <Switch
+                value={config.intentGroup}
+                onValueChange={(v) => setConfig({ intentGroup: v })}
+              />
+            )}
+          />
+          <Divider />
+          <List.Item
+            title="频道 @ 机器人"
+            description="public_guild_messages"
+            left={(props) => <List.Icon {...props} icon="at" />}
+            right={() => (
+              <Switch
+                value={config.intentGuild}
+                onValueChange={(v) => setConfig({ intentGuild: v })}
+              />
+            )}
+          />
+          <Divider />
+          <List.Item
+            title="频道私信"
+            description="direct_message"
+            left={(props) => <List.Icon {...props} icon="email-outline" />}
+            right={() => (
+              <Switch
+                value={config.intentDM}
+                onValueChange={(v) => setConfig({ intentDM: v })}
+              />
+            )}
+          />
+          <Divider />
+          <List.Item
+            title="沙箱环境"
+            description="仅测试群可用"
+            left={(props) => <List.Icon {...props} icon="flask-outline" />}
+            right={() => (
+              <Switch
+                value={config.sandbox}
+                onValueChange={(v) => setConfig({ sandbox: v })}
+              />
+            )}
+          />
+        </Section>
+
+        <Section
+          title="运行日志"
+          action={
+            logs.length > 0 ? (
+              <Button compact mode="text" onPress={clearLogs}>
+                清空
+              </Button>
+            ) : null
+          }
+        >
+          {logs.length === 0 ? (
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+              暂无日志
+            </Text>
           ) : (
-            <Button title="断开" variant="outline" onPress={disconnect} style={styles.flexBtn} />
+            <View style={styles.logBox}>
+              {logs
+                .slice(-60)
+                .reverse()
+                .map((l) => (
+                  <Text
+                    key={l.id}
+                    variant="bodySmall"
+                    style={[styles.logLine, { color: theme.colors.onSurfaceVariant }]}
+                  >
+                    {new Date(l.ts).toLocaleTimeString()} {l.text}
+                  </Text>
+                ))}
+            </View>
           )}
-          <Button title="校验凭证" variant="outline" onPress={test} style={styles.flexBtn} />
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.cardTitle}>机器人凭证</Text>
-        <Text style={styles.cardDesc}>
-          在 q.qq.com → 开放平台 → 我的机器人里获取 AppID 与 AppSecret
-        </Text>
-        <View style={{ height: 12 }} />
-        <Field
-          label="AppID"
-          value={config.appid}
-          onChangeText={(appid) => setConfig({ appid: appid.trim() })}
-          placeholder="例如 102xxxxxx"
-          hint="凭证保存在本机 AsyncStorage，不会上传到任何第三方"
-        />
-        <Field
-          label="AppSecret"
-          value={config.secret}
-          onChangeText={(secret) => setConfig({ secret: secret.trim() })}
-          placeholder="请输入 AppSecret"
-          secureTextEntry
-          hint="修改凭证后请点「断开」再「连接」使配置生效"
-        />
-        <Row label="沙箱环境（仅测试群可用）">
-          <Switch value={config.sandbox} onValueChange={(v) => setConfig({ sandbox: v })} />
-        </Row>
-      </Card>
-
-      <Card>
-        <Text style={styles.cardTitle}>订阅事件（Intents）</Text>
-        <Text style={styles.cardDesc}>修改后需要重连才能生效</Text>
-        <Row label="群 / 单聊消息（public_messages）">
-          <Switch value={config.intentGroup} onValueChange={(v) => setConfig({ intentGroup: v })} />
-        </Row>
-        <Row label="频道 @ 机器人（public_guild_messages）">
-          <Switch value={config.intentGuild} onValueChange={(v) => setConfig({ intentGuild: v })} />
-        </Row>
-        <Row label="频道私信（direct_message）">
-          <Switch value={config.intentDM} onValueChange={(v) => setConfig({ intentDM: v })} />
-        </Row>
-      </Card>
-
-      <Card>
-        <View style={styles.statusRow}>
-          <Text style={styles.cardTitle}>运行日志</Text>
-          <Button title="清空" variant="ghost" onPress={clearLogs} style={{ height: 32 }} />
-        </View>
-        {logs.length === 0 ? (
-          <Text style={styles.cardDesc}>暂无日志</Text>
-        ) : (
-          logs
-            .slice(-60)
-            .reverse()
-            .map((l) => (
-              <Text key={l.id} style={styles.logLine}>
-                {new Date(l.ts).toLocaleTimeString()} {l.text}
-              </Text>
-            ))
-        )}
-      </Card>
-    </ScrollView>
+        </Section>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 12, paddingBottom: 32 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  cardDesc: { fontSize: 12, color: colors.sub, marginTop: 4, lineHeight: 18 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  detail: { fontSize: 12, color: colors.sub, marginTop: 6 },
-  btnRow: { flexDirection: 'row', marginTop: 14, gap: 10 },
+  flex: { flex: 1 },
+  content: { padding: spacing.md, paddingBottom: spacing.xxl },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  btnRow: { flexDirection: 'row', marginTop: spacing.lg, gap: spacing.md },
   flexBtn: { flex: 1 },
-  logLine: { fontSize: 11, color: colors.sub, marginTop: 4, lineHeight: 15 },
+  logBox: { maxHeight: 260 },
+  logLine: { lineHeight: 18 },
 });

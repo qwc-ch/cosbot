@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "versionCode": 1,
     "ios": {
       "bundleIdentifier": "com.qwc.cosbot",
@@ -32,7 +32,10 @@
             "buildArchs": [
               "arm64-v8a",
               "armeabi-v7a"
-            ]
+            ],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableBundleCompression": true
           }
         }
       ]

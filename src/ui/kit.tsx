@@ -1,232 +1,195 @@
+/**
+ * MD3 共享组件层：把 react-native-paper 的原语收拢成项目里统一的用法。
+ * 各页面直接用 paper 的一级组件（Button / TextInput / SegmentedButtons …），
+ * 这里只放跨页面复用的复合件。
+ */
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Switch as RNSwitch,
-  Text,
-  TextInput,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Card, Chip, Icon, Text, useTheme } from 'react-native-paper';
 
-export const colors = {
-  bg: '#F5F6F8',
-  card: '#FFFFFF',
-  primary: '#0084FF',
-  primaryDark: '#0068C9',
-  text: '#1A1A1A',
-  sub: '#8A8F99',
-  border: '#E4E6EB',
-  danger: '#E5484D',
-  success: '#2FB344',
-  warn: '#F5A623',
-  bubbleIn: '#FFFFFF',
-  bubbleOut: '#D8EBFF',
-};
+import { spacing, type AppTheme } from './theme';
 
-export function Card({
+/** 页面底色容器 */
+export function Screen({
   children,
   style,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
-  return <View style={[styles.card, style]}>{children}</View>;
-}
-
-export function Button({
-  title,
-  onPress,
-  variant = 'primary',
-  disabled,
-  style,
-}: {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'outline' | 'danger' | 'ghost';
-  disabled?: boolean;
-  style?: ViewStyle;
-}) {
-  const isDisabled = disabled ?? false;
+  const theme = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={isDisabled}
-      style={({ pressed }) => [
-        styles.btn,
-        variant === 'primary' && styles.btnPrimary,
-        variant === 'outline' && styles.btnOutline,
-        variant === 'danger' && styles.btnDanger,
-        variant === 'ghost' && styles.btnGhost,
-        isDisabled && styles.btnDisabled,
-        pressed && !isDisabled && { opacity: 0.7 },
-        style,
-      ]}
-    >
-      <Text
-        style={[
-          styles.btnText,
-          (variant === 'outline' || variant === 'ghost') && { color: colors.primary },
-          variant === 'danger' && { color: '#fff' },
-        ]}
-      >
-        {title}
-      </Text>
-    </Pressable>
-  );
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    idle: { label: '未连接', color: colors.sub },
-    connecting: { label: '连接中', color: colors.warn },
-    identifying: { label: '鉴权中', color: colors.warn },
-    online: { label: '在线', color: colors.success },
-    reconnecting: { label: '重连中', color: colors.warn },
-    error: { label: '错误', color: colors.danger },
-  };
-  const it = map[status] ?? { label: status, color: colors.sub };
-  return (
-    <View style={[styles.badge, { backgroundColor: it.color + '22' }]}>
-      {status === 'connecting' || status === 'identifying' || status === 'reconnecting' ? (
-        <ActivityIndicator size={10} color={it.color} style={{ marginRight: 4 }} />
-      ) : (
-        <View style={[styles.dot, { backgroundColor: it.color }]} />
-      )}
-      <Text style={[styles.badgeText, { color: it.color }]}>{it.label}</Text>
-    </View>
-  );
-}
-
-export function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  secureTextEntry,
-  multiline,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  secureTextEntry?: boolean;
-  multiline?: boolean;
-  hint?: string;
-}) {
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInputWrapper
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        secureTextEntry={secureTextEntry}
-        multiline={multiline}
-      />
-      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
-// 单独包一层，统一样式
-function TextInputWrapper(props: React.ComponentProps<typeof TextInput>) {
-  return (
-    <TextInput
-      {...props}
-      style={[styles.input, props.multiline && styles.inputMultiline]}
-      placeholderTextColor={colors.sub}
-      autoCapitalize="none"
-      autoCorrect={false}
-    />
-  );
-}
-
-export function Row({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }, style]}>
       {children}
     </View>
   );
 }
 
-export function Switch({
-  value,
-  onValueChange,
+/** 分组卡片：MD3 filled card + 分组标题 */
+export function Section({
+  title,
+  description,
+  action,
+  children,
+  style,
 }: {
-  value: boolean;
-  onValueChange: (v: boolean) => void;
+  title?: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  style?: ViewStyle;
 }) {
-  return <RNSwitch value={value} onValueChange={onValueChange} />;
+  const theme = useTheme();
+  return (
+    <View style={[styles.section, style]}>
+      {title || action ? (
+        <View style={styles.sectionHeader}>
+          {title ? (
+            <Text
+              variant="labelLarge"
+              style={[styles.sectionTitle, { color: theme.colors.primary }]}
+            >
+              {title}
+            </Text>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          {action}
+        </View>
+      ) : null}
+      {description ? (
+        <Text
+          variant="bodySmall"
+          style={[styles.sectionDesc, { color: theme.colors.onSurfaceVariant }]}
+        >
+          {description}
+        </Text>
+      ) : null}
+      <Card mode="contained" style={styles.card}>
+        <Card.Content>{children}</Card.Content>
+      </Card>
+    </View>
+  );
+}
+
+/** 连接状态徽标：MD3 assist chip，busy 时换成转圈 */
+export function StatusBadge({ status }: { status: string }) {
+  const scheme = statusScheme(status, useTheme<AppTheme>());
+
+  return (
+    <Chip
+      compact
+      selected
+      showSelectedCheck={false}
+      selectedColor={scheme.onContainer}
+      style={[styles.badge, { backgroundColor: scheme.container }]}
+      icon={({ color }) => (
+        <View style={styles.badgeIcon}>
+          {scheme.busy ? (
+            <ActivityIndicator size={12} color={color} />
+          ) : (
+            <View style={[styles.dot, { backgroundColor: color }]} />
+          )}
+        </View>
+      )}
+    >
+      {scheme.label}
+    </Chip>
+  );
+}
+
+function statusScheme(
+  status: string,
+  theme: AppTheme,
+): { label: string; container: string; onContainer: string; busy: boolean } {
+  const c = theme.colors;
+  switch (status) {
+    case 'online':
+      return { label: '在线', container: c.onlineContainer, onContainer: c.onOnlineContainer, busy: false };
+    case 'connecting':
+    case 'identifying':
+      return { label: '连接中', container: c.pendingContainer, onContainer: c.onPendingContainer, busy: true };
+    case 'reconnecting':
+      return { label: '重连中', container: c.pendingContainer, onContainer: c.onPendingContainer, busy: true };
+    case 'error':
+      return { label: '错误', container: c.errorContainer, onContainer: c.onErrorContainer, busy: false };
+    default:
+      return {
+        label: '未连接',
+        container: c.offlineContainer,
+        onContainer: c.onOfflineContainer,
+        busy: false,
+      };
+  }
+}
+
+/** 空状态：图标 + 标题 + 说明 */
+export function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: string;
+  title: string;
+  description?: string;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.empty}>
+      <View style={[styles.emptyIcon, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <Icon source={icon} size={32} color={theme.colors.onSurfaceVariant} />
+      </View>
+      <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+        {title}
+      </Text>
+      {description ? (
+        <Text
+          variant="bodyMedium"
+          style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+        >
+          {description}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** 辅助说明文字 */
+export function Helper({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <Text variant="bodySmall" style={[styles.helper, { color: theme.colors.onSurfaceVariant }]}>
+      {children}
+    </Text>
+  );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  btn: {
-    height: 44,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  btnPrimary: { backgroundColor: colors.primary },
-  btnOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  btnDanger: { backgroundColor: colors.danger },
-  btnGhost: { backgroundColor: 'transparent' },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4, marginRight: 5 },
-  badgeText: { fontSize: 12, fontWeight: '600' },
-  fieldLabel: {
-    fontSize: 13,
-    color: colors.sub,
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  fieldHint: { fontSize: 11, color: colors.sub, marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.text,
-    backgroundColor: '#FAFAFB',
-  },
-  inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
-  row: {
+  screen: { flex: 1 },
+  section: { marginBottom: spacing.lg },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
-  rowLabel: { fontSize: 15, color: colors.text, flex: 1 },
+  sectionTitle: { flexShrink: 1 },
+  sectionDesc: { marginBottom: spacing.sm, lineHeight: 18 },
+  card: { borderRadius: 12 },
+  badge: { alignSelf: 'flex-start' },
+  badgeIcon: { width: 18, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  empty: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyText: { textAlign: 'center', lineHeight: 20, marginTop: spacing.sm },
+  emptyAction: { marginTop: spacing.lg, alignSelf: 'stretch' },
+  helper: { marginTop: spacing.xs, lineHeight: 16 },
 });

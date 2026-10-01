@@ -15,12 +15,19 @@ on:
     tags:
       - 'v*'
 
+# 每个 ABI 一个 job，并行构建，最后汇总成一份 Release
 jobs:
   build:
-    name: Build android APK
+    name: Build ${{ matrix.abi }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # 创建/更新 Release 及上传附件
+    strategy:
+      fail-fast: false
+      matrix:
+        abi:
+          - arm64-v8a
+          - armeabi-v7a
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,17 +68,20 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             android/.gradle
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle') }}
+          key: gradle-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('android/**/*.gradle') }}
           restore-keys: gradle-${{ runner.os }}-
 
       - name: Build APK
+        # -PreactNativeArchitectures 只打当前 ABI，
+        # 这样 release 里不会再混入另一个架构的 .so
         run: |
           cd android
           ./gradlew assemble${{ inputs.build_type == 'debug' && 'Debug' || 'Release' }} \
+            -PreactNativeArchitectures=${{ matrix.abi }} \
             --no-daemon \
             --stacktrace
 
-      - name: Locate APK
+      - name: Verify and rename APK
         id: apk
         run: |
           TYPE="${{ inputs.build_type == 'debug' && 'debug' || 'release' }}"
@@ -81,49 +91,85 @@ jobs:
             ls -R android/app/build/outputs/apk 2>&1 || true
             exit 1
           fi
-          echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "APK: $APK ($(du -h "$APK" | cut -f1))"
-          # 确认 app.json 的 buildArchs 确实生效
-          echo "reactNativeArchitectures: $(grep reactNativeArchitectures android/gradle.properties || echo '(未设置)')"
+          # 确认 APK 里只有预期的 ABI，CI 上把结果打出来便于排查
           echo "包含的 ABI:"
           unzip -l "$APK" | grep -oE 'lib/[a-z0-9_-]+/' | sort -u
+          # 没开 shrinkResources 时资源目录会明显偏大，这里给出体积分解
+          echo "体积分解:"
+          unzip -l "$APK" | awk '
+            /lib\/.*\.so$/ { so += $1 }
+            /assets\// { asset += $1 }
+            /classes.*\.dex$/ { dex += $1 }
+            /res\// { res += $1 }
+            END {
+              printf "  native .so  %6.1f MB\n", so/1048576
+              printf "  assets      %6.1f MB\n", asset/1048576
+              printf "  dex         %6.1f MB\n", dex/1048576
+              printf "  res         %6.1f MB\n", res/1048576
+            }'
 
-      - name: Rename APK
-        # 给 APK 带上版本号，下载时一眼能看出对应哪个版本
-        run: |
           case "$GITHUB_REF" in
             refs/tags/v*) VERSION="${GITHUB_REF#refs/tags/v}" ;;
             *)             VERSION="${GITHUB_SHA::7}" ;;
           esac
-          # 文件名里不能出现斜杠等字符
           VERSION="${VERSION//[^A-Za-z0-9._-]/_}"
-          cp "${{ steps.apk.outputs.path }}" "cosbot-${VERSION}.apk"
+          OUT="cosbot-$VERSION-${{ matrix.abi }}.apk"
+          cp "$APK" "$OUT"
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "APK: cosbot-${VERSION}.apk ($(du -h "cosbot-${VERSION}.apk" | cut -f1))"
+          echo "APK: $OUT ($(du -h "$OUT" | cut -f1))"
 
       - name: Upload APK as artifact
         # 保留 Artifacts 作为兜底：无需 Release 权限的临时下载途径，30 天过期
         uses: actions/upload-artifact@v4
         with:
-          name: cosbot-apk-${{ inputs.build_type || 'release' }}
+          name: cosbot-${{ matrix.abi }}-${{ inputs.build_type || 'release' }}
           path: cosbot-*.apk
           if-no-files-found: error
           retention-days: 30
 
+  release:
+    name: Publish APKs to Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cosbot-*-release
+          path: apks
+          merge-multiple: true
+
+      - name: List APKs
+        run: ls -lh apks
+
       - name: Publish to Release
-        # 仅打 tag 时发布；手动触发（无 tag）时跳过
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          BODY=$(cat <<EOF
+          按 CPU 架构分开下载，装哪个看手机型号：
+
+          - \`arm64-v8a\`：**绝大多数现代手机**（2017 年后基本都是），选这个
+          - \`armeabi-v7a\`：老旧 32 位手机，实在不确定就试这个
+
+          两个都能装的话选 arm64-v8a，包更小、运行更快。
+          EOF
+          )
           # 同名 Release 已存在则只更新附件，否则新建
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG 已存在，更新 APK 附件"
-            gh release upload "$TAG" cosbot-*.apk --clobber
+            gh release upload "$TAG" apks/*.apk --clobber
+            gh release edit "$TAG" --notes "$BODY" || true
           else
             echo "创建 Release $TAG"
-            gh release create "$TAG" cosbot-*.apk \
+            gh release create "$TAG" apks/*.apk \
               --title "cosbot $TAG" \
+              --notes "$BODY" \
               --generate-notes
           fi

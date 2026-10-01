@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Appbar,
+  Button,
+  List,
+  SegmentedButtons,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 
 import { listMyGuilds } from '../qq/api';
 import { Scene } from '../qq/protocol';
 import { useStore } from '../store';
-import { Button, Card, Field, colors } from './kit';
+import { Helper, Section } from './kit';
+import { spacing, type AppTheme } from './theme';
 
 const SCENES: Array<{ key: Scene; label: string; hint: string; placeholder: string }> = [
   {
@@ -34,6 +44,7 @@ export default function NewSessionScreen({
   onOpen: (key: string) => void;
   onBack: () => void;
 }) {
+  const theme = useTheme<AppTheme>();
   const [scene, setScene] = useState<Scene>('group');
   const [targetId, setTargetId] = useState('');
   const [title, setTitle] = useState('');
@@ -77,90 +88,87 @@ export default function NewSessionScreen({
   };
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-      <Card>
-        <Text style={styles.cardTitle}>选择场景</Text>
-        <View style={styles.tabs}>
-          {SCENES.map((s) => (
-            <Pressable
-              key={s.key}
-              onPress={() => setScene(s.key)}
-              style={[styles.tab, scene === s.key && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, scene === s.key && styles.tabTextActive]}>
-                {s.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.hint}>{current.hint}</Text>
-      </Card>
+    <View style={styles.flex}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={onBack} />
+        <Appbar.Content title="新建会话" />
+      </Appbar.Header>
 
-      {scene === 'channel' && (
-        <Card>
-          <Text style={styles.cardTitle}>我加入的频道</Text>
-          <Text style={styles.hint}>
-            只能选到频道本身，进频道后可在子频道列表里找 channel_id（子频道 id）。
-          </Text>
-          <View style={{ height: 10 }} />
-          <Button
-            title={loading ? '加载中...' : '加载频道列表'}
-            variant="outline"
-            onPress={loadGuilds}
+      <ScrollView contentContainerStyle={styles.content}>
+        <Section title="选择场景" description={current.hint}>
+          <SegmentedButtons
+            value={scene}
+            onValueChange={(v) => setScene(v as Scene)}
+            buttons={SCENES.map((s) => ({ value: s.key, label: s.label }))}
           />
-          {guilds?.map((g) => (
-            <View key={g.id} style={styles.guildRow}>
-              <Text style={styles.guildName}>{g.name}</Text>
-              <Text style={styles.guildId} numberOfLines={1}>
-                {g.id}
-              </Text>
-            </View>
-          ))}
-        </Card>
-      )}
+        </Section>
 
-      <Card>
-        <Field
-          label="目标 ID"
-          value={targetId}
-          onChangeText={setTargetId}
-          placeholder={current.placeholder}
-          hint={current.hint}
-        />
-        <Field
-          label="会话备注名（可选）"
-          value={title}
-          onChangeText={setTitle}
-          placeholder="例如：技术交流群"
-        />
-        <Button title="创建并进入" onPress={submit} />
-      </Card>
-    </ScrollView>
+        {scene === 'channel' ? (
+          <Section
+            title="我加入的频道"
+            description="只能选到频道本身，进频道后可在子频道列表里找 channel_id（子频道 id）。"
+            action={
+              <Button compact mode="text" loading={loading} onPress={loadGuilds}>
+                加载
+              </Button>
+            }
+          >
+            {guilds && guilds.length > 0 ? (
+              guilds.map((g) => (
+                <List.Item
+                  key={g.id}
+                  title={g.name}
+                  description={g.id}
+                  descriptionNumberOfLines={1}
+                  left={(props) => <List.Icon {...props} icon="hash" />}
+                />
+              ))
+            ) : (
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                {loading ? '加载中…' : '还没加载，或该机器人没有加入任何频道'}
+              </Text>
+            )}
+          </Section>
+        ) : null}
+
+        <Section title="会话信息">
+          <TextInput
+            mode="outlined"
+            label="目标 ID"
+            value={targetId}
+            onChangeText={setTargetId}
+            placeholder={current.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Helper>{current.hint}</Helper>
+
+          <View style={{ height: spacing.lg }} />
+
+          <TextInput
+            mode="outlined"
+            label="会话备注名（可选）"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="例如：技术交流群"
+          />
+
+          <Button
+            mode="contained"
+            icon="arrow-right"
+            style={styles.submit}
+            onPress={submit}
+          >
+            创建并进入
+          </Button>
+        </Section>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 12, paddingBottom: 32 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  hint: { fontSize: 12, color: colors.sub, marginTop: 8, lineHeight: 18 },
-  tabs: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#EFF1F5',
-    alignItems: 'center',
-  },
-  tabActive: { backgroundColor: colors.primary },
-  tabText: { fontSize: 14, color: colors.text },
-  tabTextActive: { color: '#fff', fontWeight: '600' },
-  guildRow: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  guildName: { fontSize: 14, color: colors.text, fontWeight: '600' },
-  guildId: { fontSize: 11, color: colors.sub, marginTop: 2 },
+  flex: { flex: 1 },
+  content: { padding: spacing.md, paddingBottom: spacing.xxl },
+  submit: { marginTop: spacing.lg },
 });
