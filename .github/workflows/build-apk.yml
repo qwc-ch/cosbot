@@ -83,6 +83,10 @@ jobs:
           fi
           echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "APK: $APK ($(du -h "$APK" | cut -f1))"
+          # 确认 app.json 的 buildArchs 确实生效
+          echo "reactNativeArchitectures: $(grep reactNativeArchitectures android/gradle.properties || echo '(未设置)')"
+          echo "包含的 ABI:"
+          unzip -l "$APK" | grep -oE 'lib/[a-z0-9_-]+/' | sort -u
 
       - name: Rename APK
         # 给 APK 带上版本号，下载时一眼能看出对应哪个版本
