@@ -137,6 +137,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      # gh release create --generate-notes 依赖 git 仓库来算 tag 之间的差异，
+      # 没有 checkout 会报 "not a git repository"
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # --generate-notes 需要完整历史来生成变更日志
+
       - name: Download all APKs
         uses: actions/download-artifact@v4
         with:
