@@ -94,10 +94,16 @@ npm start      # 启动开发服务器
 
 **触发构建**
 
-- 手动：`Actions` 页选 `Build Android APK` → `Run workflow`，可选 `release`（默认）或 `debug`。
-- 打 tag：`git tag v1.0.0 && git push origin v1.0.0` 自动触发 `release`。
+- **发布新版本（推荐，APK 进 Releases）**：
 
-构建完成后在 workflow 的 Artifacts 里下载 APK（保留 30 天）。
+  ```bash
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+
+  构建完成后自动创建/更新对应的 Release，APK 挂在仓库主页右侧的 **Releases** 页面，长期有效。同名 tag 重复推送会覆盖 APK 附件。
+
+- **仅构建，不发布**：Actions 页选 `Build Android APK` → `Run workflow`，可选 `release`（默认）或 `debug`。产物在该次运行的 `Artifacts` 区域，30 天过期。
 
 **流程**：Node 20 → Temurin 17 → `npm ci` → 类型检查 → `expo prebuild` 生成原生工程 → `gradlew assembleRelease` → 上传产物。Gradle 缓存会在多次构建间复用，第二次会快不少。
 
